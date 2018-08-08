@@ -4,7 +4,7 @@
 	(global.VueHighcharts = factory(global.Highcharts));
 }(this, (function (HighchartsOnly) { 'use strict';
 
-HighchartsOnly = 'default' in HighchartsOnly ? HighchartsOnly['default'] : HighchartsOnly;
+HighchartsOnly = HighchartsOnly && HighchartsOnly.hasOwnProperty('default') ? HighchartsOnly['default'] : HighchartsOnly;
 
 var ctors = {
   highcharts: 'Chart',
@@ -13,7 +13,6 @@ var ctors = {
   'highcharts-renderer': 'Renderer'
 };
 
-/* istanbul ignore next */
 function clone(obj) {
   var copy;
   if (obj === null || typeof obj !== 'object') {
@@ -26,6 +25,7 @@ function clone(obj) {
     }
     return copy;
   }
+  /* istanbul ignore else */
   if (obj instanceof Object) {
     copy = {};
     for (var key in obj) {
@@ -57,7 +57,8 @@ function create(tagName, Highcharts, Vue) {
           width: { type: Number, required: true },
           height: { type: Number, required: true }
         }
-      : { options: { type: Object, required: true } },
+      : { options: { type: Object, required: true },
+          destroyDelay: { type: Number, required: false } },
     methods: {
       _initChart: function() {
         this._renderChart();
@@ -84,8 +85,20 @@ function create(tagName, Highcharts, Vue) {
           delete this.renderer[property];
         }
         this.renderer = null;
-      } else {
-        this.chart.destroy();
+      } else if (this.chart) {
+        if (!this.destroyDelay) {
+          this.chart.destroy();
+          return;
+        }
+        var chartContainerId = this.chart.container.id;
+        setTimeout(function() {
+          for (var i = Highcharts.charts.length - 1; i >= 0; i--) {
+            if (Highcharts.charts[i] &&
+              Highcharts.charts[i].container.id === chartContainerId) {
+              Highcharts.charts[i].destroy();
+            }
+          }
+        }, this.destroyDelay);
       }
     }
   };
